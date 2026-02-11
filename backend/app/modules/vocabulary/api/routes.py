@@ -1,12 +1,13 @@
-from fastapi import APIRouter, Depends
-from sqlalchemy.ext.asyncio import AsyncSession
 from uuid import UUID
 
-from app.shared.database.session import get_session
-from app.modules.vocabulary.application.services import VocabularyService
-from app.modules.vocabulary.application.dto import WordCreateDTO, WordReadDTO
-from app.modules.vocabulary.infrastructure.repository import VocabularyRepository
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.modules.ai_engine.application.services import AIService
+from app.modules.vocabulary.application.dto import WordCreateDTO, WordReadDTO
+from app.modules.vocabulary.application.services import VocabularyService
+from app.modules.vocabulary.infrastructure.repository import VocabularyRepository
+from app.shared.database.session import get_session
 
 router = APIRouter(prefix="/vocabulary", tags=["vocabulary"])
 
@@ -19,13 +20,7 @@ def get_vocabulary_service(
     return VocabularyService(repo, ai)
 
 
-@router.post("/", response_model=WordReadDTO)
-async def add_word(
-    user_id: UUID,  # временно query param, позже auth
-    data: WordCreateDTO,
-    service: VocabularyService = Depends(get_vocabulary_service),
-):
-    word = await service.add_word(user_id, data)
+def to_word_read_dto(word) -> WordReadDTO:
     return WordReadDTO(
         id=word.id,
         text=word.text,
@@ -35,3 +30,36 @@ async def add_word(
         difficulty=word.difficulty,
         created_at=word.created_at,
     )
+
+
+@router.post("/", response_model=WordReadDTO)
+async def add_word(
+    user_id: UUID,  # временно query param, позже auth
+    data: WordCreateDTO,
+    service: VocabularyService = Depends(get_vocabulary_service),
+):
+    word = await service.add_word(user_id, data)
+    return to_word_read_dto(word)
+
+
+@router.get("/{word_id}", response_model=WordReadDTO)
+async def get_word(
+    user_id: UUID,
+    word_id: UUID,
+    service: VocabularyService = Depends(get_vocabulary_service),
+):
+    word = await service.get_word(word_id)
+
+    if not word or word.user_id != user_id:
+        raise HTTPException(status_code=404, detail="Word not found")
+
+    return to_word_read_dto(word)
+
+
+@router.get("/", response_model=list[WordReadDTO])
+async def list_words(
+    user_id: UUID,
+    service: VocabularyService = Depends(get_vocabulary_service),
+):
+    words = await service.list_words(user_id)
+    return [to_word_read_dto(word) for word in words]
