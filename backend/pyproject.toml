@@ -1,0 +1,19 @@
+[project]
+name = "language-learning-backend"
+version = "0.1.0"
+description = "Backend for English learning platform"
+requires-python = ">=3.11"
+
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "pydantic[email]",
+    "pydantic>=2.0",
+    "pydantic-settings",
+    "sqlalchemy>=2.0",
+    "asyncpg",
+    "alembic",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
